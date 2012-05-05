@@ -39,7 +39,7 @@
 
 (defcustom el-get-recipe-path
   (list (concat (file-name-directory el-get-script) "recipes")
-       el-get-recipe-path-elpa
+        el-get-recipe-path-elpa
 	el-get-recipe-path-emacswiki)
   "Define where to look for the recipes, that's a list of directories"
   :group 'el-get
@@ -50,22 +50,58 @@
   :group 'el-get
   :type '(choice (const :tag "Off" nil) directory))
 
+
+(defcustom el-get-user-package-org-type
+  (list "org.gpg.bz2" "org.gpg.gz" "org.gpg" "org.bz2" "org.gz" "org")
+  "Define the .org* file extensions to look for when loading user init
+files.  The extensions are matched in the order listed and the first
+one found is used."
+  :group 'el-get
+  :type '(repeat (string)))
+
+(defcustom el-get-user-package-plain-type
+  (list "el.gpg.bz2" "el.gpg.gz" "el.gpg" "el.bz2" "el.gz" "el")
+  "Define the .el* file extensions to look for when loading user
+init files.  The extensions are matched in the order listed and
+the first one found is used."
+  :group 'el-get
+  :type '(repeat (string)))
+
 (defun el-get-load-package-user-init-file (package)
   "Load the user init file for PACKAGE, called init-package.el
 and to be found in `el-get-user-package-directory'.  Do nothing
 when this custom is nil.
-
-Will automatically compile the init file as needed and load the
-compiled version."
+If the file is a literate file create in Org Mode it will
+automatically create a .el as needed based on file modification
+times and load it.  If the file is a traditional elisp file it
+will compile it and load the compiled version."
   (when el-get-user-package-directory
-    (let* ((init-file-name (format "init-%s.el" package))
-	   (package-init-file
-	    (expand-file-name init-file-name el-get-user-package-directory))
-	   (compiled-init-file (concat (file-name-sans-extension package-init-file) ".elc")))
-      (when (file-exists-p package-init-file)
-	(el-get-byte-compile-file package-init-file)
-	(el-get-verbose-message "el-get: load %S" compiled-init-file)
-	(load compiled-init-file 'noerror)))))
+    ;; Match the package against the extension to determine which
+    ;; command to use when loading it.
+    (flet ((package-load (base ext-type command)
+                         (catch 'exists
+                           (loop for ext in ext-type do
+                                 (let ((filename (format "%s.%s" base ext)))
+                                   (if (file-exists-p filename)
+                                       (throw 'exists `(,command ,filename)))))
+                           nil)))
+      (let* ((package-name (format "init-%s" package))
+             (base (expand-file-name package-name el-get-user-package-directory))
+             (org-type-load 'org-babel-load-file)
+             (plain-type-load 'load-file)
+             ;; By preferring .org files over .el files you ensure
+             ;; that changes to the .org files will be taken into
+             ;; account and a new .el file will be tangled to reflect
+             ;; those changes.
+             (load-method (or
+                           (package-load base el-get-user-package-org-type org-type-load)
+                           (package-load base el-get-user-package-plain-type plain-type-load))))
+        ;; Perform load evaluation here
+        (if load-method
+            (progn
+              (el-get-verbose-message "el-get: load %S" (cdr load-method))
+              (eval load-method))
+          (el-get-verbose-message "el-get: No init file for %S" package))))))
 
 (defun el-get-recipe-dirs ()
   "Return the elements of el-get-recipe-path that actually exist.
@@ -94,8 +130,8 @@ Used to avoid errors when exploring the path for recipes"
 
 (defun el-get-recipe-filename (package)
   "Return the name of the file that contains the recipe for PACKAGE, if any."
-  (let ((package-el  (concat (el-get-as-string package) ".el"))
-	(package-rcp (concat (el-get-as-string package) ".rcp")))
+      (let ((package-el  (concat (el-get-as-string package) ".el"))
+            (package-rcp (concat (el-get-as-string package) ".rcp")))
     (loop for dir in el-get-recipe-path
 	  for recipe-el  = (expand-file-name package-el dir)
 	  for recipe-rcp = (expand-file-name package-rcp dir)
