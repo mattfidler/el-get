@@ -1,5 +1,6 @@
-(:name ergoemacs-keybindings
-       :description "A emacs keybinding set based on ergonomics."
-       :type git-svn
-       :url "http://ergoemacs.googlecode.com/svn/trunk/ergoemacs/ergoemacs-keybindings"
-       :features "ergoemacs-mode")
+(:name ergoemacs-keybindings 
+ :description "An emacs keybinding based on ergonomics"
+ :website "http://ergoemacs.github.io/ergoemacs/ergoemacs-mode/"
+ :type git
+ :url "https://github.com/ergoemacs/ergoemacs-mode.el.git"
+ :features "ergoemacs-mode")
